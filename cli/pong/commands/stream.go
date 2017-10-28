@@ -6,6 +6,8 @@ import (
 	"github.com/solvent-io/pong/cli"
 	"github.com/spf13/cobra"
 	"fmt"
+
+	"errors"
 )
 
 type PongStreamCommand struct {
@@ -42,13 +44,24 @@ func (p *PongStreamCommand) run(cmd *cobra.Command, args []string) error {
 		p.Warn(err)
 	})
 
-	eb.On("event", func(msg *pong.Message) {
+	eb.On("message", func(msg *pong.Message) {
 		fmt.Println(msg)
 	})
+
 
 	err := eb.Start()
 	if err != nil {
 		return err
+	}
+
+	select {
+		case result := <-eb.Shutdown:
+			switch result {
+			case 0:
+				return nil
+			case 1:
+				return errors.New("fatal eventbus shutdown")
+			}
 	}
 
 	return nil

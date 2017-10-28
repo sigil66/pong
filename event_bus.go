@@ -5,7 +5,6 @@ import (
 	"github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/watch"
 	"fmt"
-	"errors"
 	"encoding/json"
 )
 
@@ -13,6 +12,8 @@ const DefaultConsulUri = "http://localhost:8500"
 
 type EventBus struct {
 	*emission.Emitter
+
+	Shutdown chan int
 
 	consulUri string
 	consulClient *api.Client
@@ -22,7 +23,7 @@ type EventBus struct {
 }
 
 func NewEventBus(consulUri string) *EventBus {
-	eb := &EventBus{Emitter: emission.NewEmitter()}
+	eb := &EventBus{Emitter: emission.NewEmitter(), Shutdown: make(chan int, 1)}
 	if consulUri != "" {
 		eb.consulUri = consulUri
 	} else {
@@ -40,9 +41,9 @@ func (e *EventBus) Start() error {
 	}
 
 	// setup raw event handler
-	e.On("rawevent", e.handle)
+	e.On("rawmessage", e.handle)
 
-    // setup watch for pong events
+	// setup watch for pong events
 	watchParams := make(map[string]interface{})
 	watchParams["type"] = "event"
 	watchParams["name"] = "pong"
@@ -58,21 +59,26 @@ func (e *EventBus) Start() error {
 
 		for _, event := range events {
 			if event.LTime > e.seen {
-				e.Emit("rawevent", event)
+				e.Emit("rawmessage", event)
 				e.seen = event.LTime
 			}
 		}
 	}
 
-	if err := e.consulWatch.Run(e.consulUri); err != nil {
-		return errors.New(fmt.Sprintf("error accessing Consul: %s", err))
-	}
+	go func() {
+		if err := e.consulWatch.Run(e.consulUri); err != nil {
+			e.Emit("error", fmt.Sprintf("error accessing Consul: %s", err))
+		}
+
+		e.Shutdown <- 0
+
+	}()
 
 	return err
 }
 
 func (e *EventBus) Stop() {
-
+	e.consulWatch.Stop()
 }
 
 func (e *EventBus) Consume(address string) *Consumer {
@@ -91,10 +97,10 @@ func (e *EventBus) handle(rawevent *api.UserEvent) {
 	var msg Message
 	err := json.Unmarshal(rawevent.Payload, &msg)
 	if err != nil {
-		e.Emit("error", fmt.Sprint("error parsing data for msg:", rawevent.ID))
+		e.Emit("error", fmt.Sprint("error parsing data for message:", rawevent.ID))
 	} else {
 		msg.Id = rawevent.ID
-		e.Emit("event", msg)
+		e.Emit("message", msg)
 		e.Emit(msg.To, msg)
 	}
 }
