@@ -56,6 +56,14 @@ func (e *EventBus) Start() error {
 		return err
 	}
 
+	// set start index
+	events, _, err := e.consulClient.Event().List("pong", nil)
+	if err != nil {
+		return err
+	}
+
+	e.seen = events[len(events)-1].LTime
+
 	// setup raw event handler
 	e.On("rawmessage", e.handle)
 
@@ -108,7 +116,7 @@ func (e *EventBus) Publish(message *Message) (string, error) {
 	return id, err
 }
 
-func (e *EventBus) Send(address string, message *Message) {
+func (e *EventBus) Send(message *Message) {
 
 }
 
