@@ -22,29 +22,28 @@ import (
 	"github.com/solvent-io/pong/cli"
 	"github.com/spf13/cobra"
 
-	"fmt"
 	"errors"
 )
 
-type PongPublishCommand struct {
+type PongSubscribeCommand struct {
 	*cobra.Command
 	*cli.Ui
 }
 
-func NewPongPublishCommand() *PongPublishCommand {
-	cmd := &PongPublishCommand{}
+func NewPongSubscribeCommand() *PongSubscribeCommand {
+	cmd := &PongSubscribeCommand{}
 	cmd.Command = &cobra.Command{}
 	cmd.Ui = cli.NewUi()
-	cmd.Use = "publish"
-	cmd.Short = "Publish a pong message to an address"
-	cmd.Long = "Publish a pong message to an address"
+	cmd.Use = "subscribe"
+	cmd.Short = "Subscribe to events at address"
+	cmd.Long = "Subscribe to events at address"
 	cmd.PreRunE = cmd.setup
 	cmd.RunE = cmd.run
 
 	return cmd
 }
 
-func (p *PongPublishCommand) setup(cmd *cobra.Command, args []string) error {
+func (p *PongSubscribeCommand) setup(cmd *cobra.Command, args []string) error {
 	color, err := cmd.Flags().GetBool("no-color")
 
 	p.NoColor(color)
@@ -52,41 +51,35 @@ func (p *PongPublishCommand) setup(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func (p *PongPublishCommand) run(cmd *cobra.Command, args []string) error {
-	var msg string
+func (p *PongSubscribeCommand) run(cmd *cobra.Command, args []string) error {
 	var address string
 
 	if cmd.Flags().Arg(0) == "" {
-		return errors.New("argument MESSAGE required")
+		return errors.New("argument ADDRESS required")
 	} else {
-		msg = cmd.Flags().Arg(0)
-	}
-
-	if cmd.Flags().Arg(1) == "" {
-		address = "*"
-	} else {
-		address = cmd.Flags().Arg(1)
+		address = cmd.Flags().Arg(0)
 	}
 
 	eb := pong.NewEventBus("")
+
+	eb.Consume(address, func(msg *pong.Message){
+		p.Out(string(msg.Json()))
+	})
 
 	err := eb.Start()
 	if err != nil {
 		return err
 	}
 
-	message := &pong.Message{}
-	message.Address = address
-	message.Data = make(map[string]interface{})
-	message.Data["message"] = msg
-
-	id, err := eb.Publish(message)
-	if err != nil {
-		return err
+	select {
+	case result := <-eb.Shutdown:
+		switch result {
+		case 0:
+			return nil
+		case 1:
+			return errors.New("fatal eventbus shutdown")
+		}
 	}
-
-	p.Out(fmt.Sprint("Sent message -> ", id))
 
 	return nil
 }
-

@@ -41,6 +41,7 @@ func NewPongRootCommand() *PongRootCommand {
 
 	cmd.AddCommand(NewPongPublishCommand().Command)
 	cmd.AddCommand(NewPongStreamCommand().Command)
+	cmd.AddCommand(NewPongSubscribeCommand().Command)
 
 	return cmd
 }

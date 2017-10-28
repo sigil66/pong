@@ -20,7 +20,7 @@ import "encoding/json"
 
 type Message struct {
 	Id     string `json:"id,omitempty"`
-	Address     string `json:"to"`
+	Address     string `json:"address"`
 	Data   map[string]interface{} `json:"data,omitempty"`
 }
 

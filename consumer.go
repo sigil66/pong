@@ -17,5 +17,10 @@
 package pong
 
 type Consumer struct {
+	Handler func(msg *Message)
+	address string
+}
 
+func (c *Consumer) Address() string {
+	return c.address
 }

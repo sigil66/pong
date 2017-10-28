@@ -105,8 +105,10 @@ func (e *EventBus) Stop() {
 	e.consulWatch.Stop()
 }
 
-func (e *EventBus) Consume(address string) *Consumer {
-	return nil
+func (e *EventBus) Consume(address string, handler func(msg *Message)) *Consumer {
+	e.On(address, handler)
+
+	return &Consumer{handler, address}
 }
 
 func (e *EventBus) Publish(message *Message) (string, error) {
