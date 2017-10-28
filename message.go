@@ -16,8 +16,16 @@
 
 package pong
 
+import "encoding/json"
+
 type Message struct {
 	Id     string `json:"id,omitempty"`
-	To     string `json:"to"`
+	Address     string `json:"to"`
 	Data   map[string]interface{} `json:"data,omitempty"`
+}
+
+func (m *Message) Json() []byte {
+	json, _ := json.Marshal(m)
+
+	return json
 }

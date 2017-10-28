@@ -22,28 +22,29 @@ import (
 	"github.com/solvent-io/pong/cli"
 	"github.com/spf13/cobra"
 
+	"fmt"
 	"errors"
 )
 
-type PongStreamCommand struct {
+type PongPublishCommand struct {
 	*cobra.Command
 	*cli.Ui
 }
 
-func NewPongStreamCommand() *PongStreamCommand {
-	cmd := &PongStreamCommand{}
+func NewPongPublishCommand() *PongPublishCommand {
+	cmd := &PongPublishCommand{}
 	cmd.Command = &cobra.Command{}
 	cmd.Ui = cli.NewUi()
-	cmd.Use = "stream"
-	cmd.Short = "Stream all events arriving on the eventbus"
-	cmd.Long = "Stream all events arriving on the eventbus"
+	cmd.Use = "publish"
+	cmd.Short = "Publish a pong message to an address"
+	cmd.Long = "Publish a pong message to an address"
 	cmd.PreRunE = cmd.setup
 	cmd.RunE = cmd.run
 
 	return cmd
 }
 
-func (p *PongStreamCommand) setup(cmd *cobra.Command, args []string) error {
+func (p *PongPublishCommand) setup(cmd *cobra.Command, args []string) error {
 	color, err := cmd.Flags().GetBool("no-color")
 
 	p.NoColor(color)
@@ -51,32 +52,39 @@ func (p *PongStreamCommand) setup(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func (p *PongStreamCommand) run(cmd *cobra.Command, args []string) error {
+func (p *PongPublishCommand) run(cmd *cobra.Command, args []string) error {
+	var msg string
+	var address string
+
+	if cmd.Flags().Arg(0) == "" {
+		return errors.New("argument MESSAGE required")
+	} else {
+		msg = cmd.Flags().Arg(0)
+	}
+
+	if cmd.Flags().Arg(1) == "" {
+		address = "*"
+	}
 
 	eb := pong.NewEventBus("")
-
-	eb.On("error", func(err string) {
-		p.Warn(err)
-	})
-
-	eb.On("message", func(msg *pong.Message) {
-		p.Out(string(msg.Json()))
-	})
 
 	err := eb.Start()
 	if err != nil {
 		return err
 	}
 
-	select {
-		case result := <-eb.Shutdown:
-			switch result {
-			case 0:
-				return nil
-			case 1:
-				return errors.New("fatal eventbus shutdown")
-			}
+	message := &pong.Message{}
+	message.Address = address
+	message.Data = make(map[string]interface{})
+	message.Data["message"] = msg
+
+	id, err := eb.Publish(message)
+	if err != nil {
+		return err
 	}
+
+	p.Out(fmt.Sprint("Sent message -> ", id))
 
 	return nil
 }
+

@@ -39,6 +39,7 @@ func NewPongRootCommand() *PongRootCommand {
 
 	cmd.PersistentFlags().Bool("no-color", false, "Disable color")
 
+	cmd.AddCommand(NewPongPublishCommand().Command)
 	cmd.AddCommand(NewPongStreamCommand().Command)
 
 	return cmd

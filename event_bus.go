@@ -101,8 +101,11 @@ func (e *EventBus) Consume(address string) *Consumer {
 	return nil
 }
 
-func (e *EventBus) Publish(address string, message *Message) {
+func (e *EventBus) Publish(message *Message) (string, error) {
+	event := &api.UserEvent{Name: "pong", Payload: message.Json(), NodeFilter: ""}
+	id, _, err := e.consulClient.Event().Fire(event, nil)
 
+	return id, err
 }
 
 func (e *EventBus) Send(address string, message *Message) {
@@ -116,7 +119,7 @@ func (e *EventBus) handle(rawevent *api.UserEvent) {
 		e.Emit("error", fmt.Sprint("error parsing data for message:", rawevent.ID))
 	} else {
 		msg.Id = rawevent.ID
-		e.Emit("message", msg)
-		e.Emit(msg.To, msg)
+		e.Emit("message", &msg)
+		e.Emit(msg.Address, &msg)
 	}
 }
